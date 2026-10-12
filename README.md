@@ -14,10 +14,14 @@ A lightweight, user-friendly graphical interface to edit `logid.cfg` files for `
 - **Syntax Preserving**: Automatically formats the output to match the specific `logid` configuration syntax.
 
 ## 🚀 How to Use
+### Running from Source
+If you want to run the script directly, ensure you have Python and PyQt6 installed:
+```bash
+pip install PyQt6
+python logid_editor.py
 
 💻 Build Environment (For Release Files)
 The release binaries were built in the following environment to ensure compatibility:
-
 OS: Ubuntu 24.04 LTS (Linux)
 Python Version: 3.12
 GUI Framework: PyQt6

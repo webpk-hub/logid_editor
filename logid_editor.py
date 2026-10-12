@@ -13,8 +13,9 @@ class LogidEditor(QMainWindow):
         self.setWindowTitle("LogiD Config GUI Editor")
         self.resize(850, 650)
         
-        # 核心变量：记录当前打开的文件路径
+        # 核心变量
         self.current_file_path = None
+        self.device_name = "Unknown Device"  # 用于存储从文件读取到的设备名称
         
         self.init_ui()
 
@@ -34,12 +35,12 @@ class LogidEditor(QMainWindow):
         btn_open.clicked.connect(self.open_file_dialog)
         
         file_layout.addWidget(btn_open)
-        file_layout.addWidget(self.lbl_file_path, 1) # 权重为1，占据剩余空间
+        file_layout.addWidget(self.lbl_file_path, 1) 
         file_group.setLayout(file_layout)
         main_layout.addWidget(file_group)
 
-        # --- Device Settings Group ---
-        device_group = QGroupBox("Device Settings (Wireless Mobile Mouse MX Anywhere 2S)")
+        # --- Device Settings Group (动态标题) ---
+        self.device_group_box = QGroupBox("Device Settings")
         self.device_form = QFormLayout()
         
         self.edit_dpi = QLineEdit()
@@ -56,8 +57,8 @@ class LogidEditor(QMainWindow):
         self.device_form.addRow(self.edit_hires_on)
         self.device_form.addRow(self.edit_hires_invert)
         
-        device_group.setLayout(self.device_form)
-        main_layout.addWidget(device_group)
+        self.device_group_box.setLayout(self.device_form)
+        main_layout.addWidget(self.device_group_box)
 
         # --- Buttons Table ---
         button_group = QGroupBox("Button Mapping (CID -> Keys)")
@@ -80,7 +81,7 @@ class LogidEditor(QMainWindow):
         # --- Bottom Buttons ---
         bottom_layout = QHBoxLayout()
         self.save_btn = QPushButton("SAVE CHANGES")
-        self.save_btn.setEnabled(False) # 初始状态不可点击，直到加载了文件
+        self.save_btn.setEnabled(False) 
         self.save_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; height: 40px;")
         bottom_layout.addWidget(self.save_btn)
         main_layout.addLayout(bottom_layout)
@@ -107,15 +108,31 @@ class LogidEditor(QMainWindow):
             with open(self.current_file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            # 解析逻辑 (保持与之前一致，使用正则)
-            self.edit_dpi.setText(re.search(r'dpi:\s*(\d+);', content).group(1))
+            # 1. 解析设备名称 (核心修改点)
+            name_match = re.search(r'name:\s*"([^"]+)";', content)
+            if name_match:
+                self.device_name = name_match.group(1)
+                self.device_group_box.setTitle(f"Device Settings ({self.device_name})")
+            else:
+                self.device_name = "Unknown Device"
+                self.device_group_box.setTitle("Device Settings (Unknown)")
+
+            # 2. 解析其他参数 (增加安全性检查)
+            dpi_match = re.search(r'dpi:\s*(\d+);', content)
+            self.edit_dpi.setText(dpi_match.group(1) if dpi_match else "0")
+
             self.edit_smartshift_on.setChecked('smartshift:\s*{\s*on:\s*true' in content)
-            self.edit_smartshift_threshold.setText(re.search(r'threshold:\s*(\d+);', content).group(1))
-            self.edit_smartshift_torque.setText(re.search(r'torque:\s*(\d+);', content).group(1))
+            
+            threshold_match = re.search(r'threshold:\s*(\d+);', content)
+            self.edit_smartshift_threshold.setText(threshold_match.group(1) if threshold_match else "0")
+            
+            torque_match = re.search(r'torque:\s*(\d+);', content)
+            self.edit_smartshift_torque.setText(torque_match.group(1) if torque_match else "0")
+
             self.edit_hires_on.setChecked('hiresscroll:\s*{\s*hires:\s*true' in content)
             self.edit_hires_invert.setChecked('invert:\s*true' in content)
 
-            # 解析按钮
+            # 3. 解析按钮
             button_pattern = re.compile(r'cid:\s*(0x[0-9a-fA-F]+);.*?keys:\s*\[(.*?)\]', re.DOTALL)
             buttons = button_pattern.findall(content)
             
@@ -127,8 +144,8 @@ class LogidEditor(QMainWindow):
                 
                 # 简单的描述逻辑
                 desc = "Button"
-                if "back" in content.lower() and cid == "0x053": desc = "Back"
-                elif "front" in content.lower() and cid == "0x056": desc = "Front"
+                if cid == "0x053": desc = "Back"
+                elif cid == "0x056": desc = "Front"
                 self.btn_table.setItem(row, 1, QTableWidgetItem(desc))
                 
                 clean_keys = keys.replace('"', '').replace("'", "").strip()
@@ -154,10 +171,10 @@ class LogidEditor(QMainWindow):
             return
 
         try:
-            # 构建新的文件内容 (严格遵循原始格式)
+            # 使用 self.device_name 构建新的文件内容 (核心修改点)
             new_content = f"""devices: (
 {{
-    name: "Wireless Mobile Mouse MX Anywhere 2S";
+    name: "{self.device_name}";
     smartshift:
     {{
         on: {"true" if self.edit_smartshift_on.isChecked() else "false"};
@@ -175,9 +192,15 @@ class LogidEditor(QMainWindow):
     buttons: (
 """
             for i in range(self.btn_table.rowCount()):
-                cid = self.btn_table.item(i, 0).text()
-                keys_raw = self.btn_table.item(i, 2).text()
-                key_list = [k.strip() for k in keys_raw.split(',')]
+                cid_item = self.btn_table.item(i, 0)
+                keys_item = self.btn_table.item(i, 2)
+                
+                if not cid_item or not keys_item:
+                    continue
+
+                cid = cid_item.text()
+                keys_raw = keys_item.text()
+                key_list = [k.strip() for k in keys_raw.split(',') if k.strip()]
                 keys_formatted = ", ".join([f'"{k}"' for k in key_list])
                 
                 new_content += f"""        {{
@@ -204,9 +227,7 @@ class LogidEditor(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    # 设置全局样式，让它看起来现代一点
     app.setStyle("Fusion") 
     window = LogidEditor()
     window.show()
     sys.exit(app.exec())
-

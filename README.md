@@ -14,3 +14,12 @@ A lightweight, user-friendly graphical interface to edit `logid.cfg` files for `
 You need Python 3 and PyQt6 installed:
 ```bash
 pip install PyQt6
+
+Running the script
+Clone this repository:
+bash
+git clone https://github.com/YOUR_USERNAME/logid-editor.git
+cd logid-editor
+Run the editor:
+bash
+python logid_editor.py

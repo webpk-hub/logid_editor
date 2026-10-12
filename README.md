@@ -20,8 +20,3 @@ If you want to run the script directly, ensure you have Python and PyQt6 install
 pip install PyQt6
 python logid_editor.py
 
-💻 Build Environment (For Release Files)
-The release binaries were built in the following environment to ensure compatibility:
-OS: Ubuntu 24.04 LTS (Linux)
-Python Version: 3.12
-GUI Framework: PyQt6
